@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net"
@@ -295,11 +296,15 @@ func (p *csiProvisioner) Provision(options controller.VolumeOptions) (*v1.Persis
 	capacity := options.PVC.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
 	volSizeBytes := capacity.Value()
 
+	parameters, err := injectCOParameter(options)
+	if err != nil {
+		return nil, err
+	}
 	// Create a CSI CreateVolumeRequest and Response
 	req := csi.CreateVolumeRequest{
 
 		Name:       pvName,
-		Parameters: options.Parameters,
+		Parameters: parameters,
 		VolumeCapabilities: []*csi.VolumeCapability{
 			{
 				AccessType: accessType,
@@ -606,4 +611,30 @@ func bytesToGiQuantity(bytes int64) resource.Quantity {
 	}
 	stringQuantity := fmt.Sprintf("%v%s", num, suffix)
 	return resource.MustParse(stringQuantity)
+}
+
+// inject parameters which depends on container orchestration
+func injectCOParameter(options controller.VolumeOptions) (map[string]string, error) {
+
+	annotationsPVC, err := json.Marshal(options.PVC.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
+	labelsPVC, err := json.Marshal(options.PVC.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	storageClass, err := json.Marshal(options.Parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	parameters := map[string]string{
+		"annotationsPVC": string(annotationsPVC),
+		"labelsPVC":      string(labelsPVC),
+		"storageClass":   string(storageClass),
+	}
+	return parameters, nil
 }
