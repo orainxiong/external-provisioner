@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME=quay.io/k8scsi
-IMAGE_NAME=csi-provisioner
-IMAGE_VERSION=canary
-IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
+IMAGE_NAME = registry.woqutech.com/woqutech/external-provisioner
+IMAGE_VERSION = canary
 
 REV=$(shell git describe --long --match='v*' --dirty)
 
@@ -25,20 +23,20 @@ else
 TESTARGS =
 endif
 
-all: csi-provisioner
+all: external-provisioner
 
-csi-provisioner:
+external-provisioner:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X main.version=$(REV) -extldflags "-static"' -o ./bin/csi-provisioner ./cmd/csi-provisioner
 
 clean:
 	rm -rf bin deploy/docker/csi-provisioner
 
-container: csi-provisioner
-	docker build -t $(IMAGE_TAG) .
+container: external-provisioner
+	docker build -t $(IMAGE_NAME):$(IMAGE_VERSION) .
 
 push: container
-	docker push $(IMAGE_TAG)
+	docker push $(IMAGE_NAME):$(IMAGE_VERSION)
 
 test:
 	go test `go list ./... | grep -v 'vendor'` $(TESTARGS)

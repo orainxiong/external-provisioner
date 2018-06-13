@@ -139,10 +139,21 @@ func init() {
 		}
 		return informerFactory.Storage().V1beta1().StorageClasses().Informer()
 	}()
+	secretInformer := informerFactory.Core().V1().Secrets().Informer()
 
 	// Create the provisioner: it implements the Provisioner interface expected by
 	// the controller
-	csiProvisioner := ctrl.NewCSIProvisioner(clientset, *csiEndpoint, *connectionTimeout, identity, *volumeNamePrefix, *volumeNameUUIDLength, grpcClient)
+	csiProvisioner := ctrl.NewCSIProvisioner(
+		clientset,
+		*csiEndpoint,
+		*connectionTimeout,
+		identity,
+		*volumeNamePrefix,
+		*volumeNameUUIDLength,
+		grpcClient,
+		secretInformer.GetStore(),
+		classInformer.GetStore(),
+	)
 	provisionController = controller.NewProvisionController(
 		clientset,
 		*provisioner,
@@ -193,8 +204,6 @@ func main() {
 
 	run := func(stopCh <-chan struct{}) {
 		go informerFactory.Start(stopCh)
-		informerFactory.WaitForCacheSync(stopCh)
-
 		synced := informerFactory.WaitForCacheSync(stopCh)
 		for tpy, sync := range synced {
 			if !sync {
